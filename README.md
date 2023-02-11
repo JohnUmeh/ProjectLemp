@@ -102,98 +102,200 @@ PHP serves as the programming language responsible for dynamically displaying co
 # **CONFIGURING NGINX TO USE PHP PROCESSOR**
 
 we can create server blocks (similar to virtual hosts in Apache) to encapsulate configuration details and host more than one domain on a single server. In this guide, we will use projectLEMP as an example domain name.
+
 # **Creating web Domain**
 
-First, we create the directory for projectlamp using the mkdir command
-`sudo mkdir /var/www/projectlampstack`
+First, we create the directory for projectLEMP using the mkdir command
+
+`sudo mkdir /var/www/projectLEMP`
 
 Next, we assign ownership of the directory with the current system user:
 
- `sudo chown -R $USER:$USER /var/www/projectlamp`
+ `sudo chown -R $USER:$USER /var/www/projectLEMP`
  
- ![Screenshot from 2023-02-05 23-38-17](https://user-images.githubusercontent.com/77943759/216852500-c1319e10-d4f1-481c-922d-fc76c3902e6e.png)
+ ![mkdir](https://user-images.githubusercontent.com/77943759/218274992-2412815b-fcbf-493d-950d-7235fddaafd2.png)
 
  
- Then, create and open a new configuration file in Apache’s sites-available directory
+ Then, create and open a new configuration file in Nginx sites-available directory using nano command line editor
 
-`sudo vi /etc/apache2/sites-available/projectlamp.conf`
+`sudo nano /etc/nginx/sites-available/projectLEMP`
 
-copy and paste the following in he directory, it is the setting required to spin the server block
+copy and paste the following bare-bones configuration in the directory;
+
 ```
-<VirtualHost *:80>
-    ServerName projectlamp
-    ServerAlias www.projectlamp 
-    ServerAdmin webmaster@localhost
-    DocumentRoot /var/www/projectlamp
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
+#/etc/nginx/sites-available/projectLEMP
+
+server {
+    listen 80;
+    server_name projectLEMP www.projectLEMP;
+    root /var/www/projectLEMP;
+
+    index index.html index.htm index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+     }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+}
+
 ```
-![Screenshot from 2023-02-05 23-40-54](https://user-images.githubusercontent.com/77943759/216852786-5790e68c-ac94-4edc-8cb8-2b70e3d80331.png)
+![editvar](https://user-images.githubusercontent.com/77943759/218275944-4047ded6-f17c-4a92-a49e-59b39657b044.png)
 
-Ater this, hit `esc` then type :wq to save and exit the vi editor
 
-Next, run `sudo a2ensite projectlampstack` to activate the server block
+Ater this, type ctrl O to save, enter and ctrl X to exit
 
-You need to deactivate the default server block that is defaultly on apache:
+Activate the configuration by linking to the config file from Nginx’s sites-enabled directory:
 
-`sudo a2dissite 000-default`
+`sudo ln -s /etc/nginx/sites-available/projectLEMP /etc/nginx/sites-enabled/`
 
-Now reload the apache2 server:
+This will tell Nginx to use the configuration next time it is reloaded. Type `sudo nginx -t` to check for syntax error. The page below confirms there is no syntax error
 
-`sudo systemctl reload apache2`
+![nginxtest](https://user-images.githubusercontent.com/77943759/218276359-20787878-7cb4-4661-a73a-75fae9671a96.png)
 
-To test that the server is working as expected, we create an index.html file in /var/www/projectlampstack
+We also need to disable default Nginx host that is currently configured to listen on port 80, for this run:
 
-![Screenshot from 2023-02-05 23-58-12](https://user-images.githubusercontent.com/77943759/216853477-93a49201-e706-45b8-a71f-d52ad285893e.png)
+`sudo unlink /etc/nginx/sites-enabled/default`
+
+Next, reload nginx with `sudo systemctl reload nginx`
+
+
+To test that the server is working as expected, we create an index.html file in  location /var/www/projectLEMP;
+
+`sudo echo 'Hello LEMP from hostname' $(curl -s http://169.254.169.254/latest/meta-data/public-hostname) 'with public IP' $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4) > /var/www/projectLEMP/index.html`
+
+![echonginx](https://user-images.githubusercontent.com/77943759/218276795-e95c7b12-ae15-4779-aa54-09ffc176f304.png)
+
 
 Now, open any browser of your choice and type in 
 
 `http://<public_ip_address>:80`
 
-![Screenshot from 2023-02-06 00-05-00](https://user-images.githubusercontent.com/77943759/216854171-f57a2d5a-5581-42a7-af51-04e95a170ebd.png)
+![lempecho](https://user-images.githubusercontent.com/77943759/218276966-9fd2d5c3-305e-4faf-a559-a775f1554c65.png)
 
-# **ENABLE PHP ON WEBSITE**
-
-By default, index.html will take preceedence over index.php, to change this behaviour, open the editor
-
-`sudo vim /etc/apache2/mods-enabled/dir.conf`
-
-Then, paste this command
-
-```
-<IfModule mod_dir.c>
-        #Change this:
-        #DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm
-        #To this:
-        DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
-</IfModule>
-```
-
-![Screenshot from 2023-02-06 01-02-45](https://user-images.githubusercontent.com/77943759/216858925-029ae13c-0ad2-4d74-9b13-c4aa97e41b9c.png)
+The above page shows the server working properly.
 
 
-Reload apache for changes to take effect
+# **TESTING PHP WITH NGINX**
 
-`sudo systemctl reload apache2`
+Now that LEMP stack is fully installed, test to see if it can handle .php files properly
 
-Create an index.php file
+To do this, we use the nano command editor to create a test php file in the document root
 
-`vim /var/www/projectlamp/index.php`
+Create the file `sudo nano /var/www/projectLEMP/info.php`
 
-Input this:
+Paste this in the open file
+
 ```
 <?php
 phpinfo();
 ```
+Now enter http://`server_domain_or_IP`/info.php
 
-![Screenshot from 2023-02-06 01-09-33](https://user-images.githubusercontent.com/77943759/216859517-1d2afed3-66d8-4560-a253-29b073847303.png)
+![phpinfo](https://user-images.githubusercontent.com/77943759/218278407-ee553885-de97-4c42-8c70-032406b3cc86.png)
 
-Refresh your opened page or repeat 
+This page shows the info of the php page
 
-`http://<public_ip_address>:80`
+# **RETRIEVING DATA FROM MySQL DATABASE WITH PHP**
 
+We create a database next so that the Nginx website will be able to query data from the database and display
 
-![Screenshot from 2023-02-06 01-11-29](https://user-images.githubusercontent.com/77943759/216859664-d47bcbab-979a-4bc9-837e-3e45e4e2d33a.png)
+We will create a database named example_database and a user named example_user
 
-End
+Connect mysql
+
+`sudo mysql`
+
+Create a new database by entering this command into the mysql console
+
+`CREATE DATABASE `example_database`;`
+
+![dbcreate](https://user-images.githubusercontent.com/77943759/218281506-02f78549-9bd9-4a9e-9777-d0756ccca6af.png)
+
+Next, create a new user and grant him full privileges on the database you have just created. Enter this into the mysql console
+
+`CREATE USER 'example_user'@'%' IDENTIFIED WITH mysql_native_password BY 'password12';`
+
+Enter the following into mysql consoleto grant the created user full priviledge
+
+`GRANT ALL ON example_database.* TO 'example_user'@'%';`
+
+Type `exit` to exit the mysql console
+
+Next You can test if the new user has the proper permissions by logging in to the MySQL console again by using custom user credentials:
+
+`mysql -u example_user -p`. Enter the required password 
+
+Now acess your database with `SHOW DATABASES;`
+
+The page below displays the database
+
+![showdatabases](https://user-images.githubusercontent.com/77943759/218281813-e9f6b073-ad07-4527-a093-259c5f4c55ac.png)
+
+Next, we’ll create a test table named todo_list. From the MySQL console, run the following statement:
+```
+CREATE TABLE example_database.todo_list ( 
+item_id INT AUTO_INCREMENT,
+content VARCHAR(255),
+PRIMARY KEY(item_id)
+);
+```
+![createtable](https://user-images.githubusercontent.com/77943759/218282033-e776b25b-10ab-440b-9795-bff9068ee103.png)
+
+We add a few lines to the table by typing into the mysql console:
+
+```
+INSERT INTO example_database.todo_list (content) VALUES ("lemp1code");
+INSERT INTO example_database.todo_list (content) VALUES ("lemp2code");
+INSERT INTO example_database.todo_list (content) VALUES ("last lemp message");
+```
+Then `run SELECT * FROM example_database.todo_list;` to view the db which will bring the page below
+
+![databasemessage](https://user-images.githubusercontent.com/77943759/218282200-7bee223b-da02-4b3e-89ec-a5cae6b7c86a.png)
+
+exit mysql by typing in `exit` in the console
+
+Now we can create a PHP script that will connect to MySQL and query for our content. Create a new PHP file in the custom web root directory using nano editor:
+
+`nano /var/www/projectLEMP/todo_list.php`
+
+Next, copy and paste in the file:
+
+```
+<?php
+$user = "example_user";
+$password = "password";
+$database = "example_database";
+$table = "todo_list";
+
+try {
+  $db = new PDO("mysql:host=localhost;dbname=$database", $user, $password);
+  echo "<h2>TODO</h2><ol>";
+  foreach($db->query("SELECT content FROM $table") as $row) {
+    echo "<li>" . $row['content'] . "</li>";
+  }
+  echo "</ol>";
+} catch (PDOException $e) {
+    print "Error!: " . $e->getMessage() . "<br/>";
+    die();
+}
+```
+Save and close then visit
+
+`http://<Public_domain_or_IP>/todo_list.php`
+
+The following page display shows the contents of the file created
+
+![fullpage](https://user-images.githubusercontent.com/77943759/218282478-e6f9474c-d80f-4c9f-a2ee-5fdf7a3b069a.png)
+
+with this, we have successfully used Nginx as web server and Mysql as database to provide PHP websites and visitors' applications.
+
+END
